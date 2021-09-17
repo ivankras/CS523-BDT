@@ -44,17 +44,17 @@ object KafkaHBaseWordCount {
 //      "zookeeper.connection.timeout.ms" -> "1000")
 
 //    val Array(zkQuorum, group, topics, numThreads) = args
-    val zkQuorum = "172.17.0.1.2181"
+    val zkQuorum = "172.17.0.1:2181"
     val group =  "kafka-spark-streaming-example"
     val topics = "my-topic"
     val numThreads = "1"
-//    ssc.checkpoint("checkpoint")
+    ssc.checkpoint("/home")
 
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
     val lines = KafkaUtils.createStream(ssc, zkQuorum, group, topicMap).map(_._2)
     val words = lines.flatMap(_.split(" "))
     val wordCounts = words.map(x => (x, 1L))
-      .reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(2), 2)
+      .reduceByKeyAndWindow(_ + _, _ - _, Minutes(10), Seconds(5), 2)
 
 //    val lines = KafkaUtils.createStream[Array[Byte], String,
 //      DefaultDecoder, StringDecoder](
