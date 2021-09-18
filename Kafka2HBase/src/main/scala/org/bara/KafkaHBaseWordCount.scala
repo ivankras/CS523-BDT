@@ -20,11 +20,9 @@ package org.bara
 
 import net.liftweb.json.DefaultFormats
 import org.apache.spark.SparkConf
-import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 import net.liftweb.json._
-import org.apache.hadoop.conf.Configuration
-import org.apache.spark.sql.SparkSession
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
@@ -56,7 +54,7 @@ object KafkaHBaseWordCount {
 
   def main(args: Array[String]): Unit = {
 //    if (args.length < 4) {
-//      System.err.println("Usage: KafkaWordCount <zkQuorum><group> <topics> <numThreads>")
+//      System.err.println("Usage: KafkaWordCount <zkQuorum> <group> <topics> <numThreads>")
 //      System.exit(1)
 //    }
 
@@ -97,7 +95,7 @@ object KafkaHBaseWordCount {
     tweets.foreachRDD(rdd => {
       val hbaseConf = HBaseConfiguration.create()
       hbaseConf.set("hbase.zookeeper.quorum","172.17.0.1")  //To set the zookeeper cluster address, you can also import hbase-site.xml into the classpath, but it is recommended to set it in the program
-      hbaseConf.set("hbase.zookeeper.property.clientPort", "2181")       //Set the connection port of zookeeper, 2181 by default
+      hbaseConf.set("hbase.zookeeper.property.clientPort", "2182")       //Set the connection port of zookeeper, 2181 by default
       hbaseConf.set(TableOutputFormat.OUTPUT_TABLE, "tweets")
 
       val jobConf = new JobConf(hbaseConf)
@@ -112,10 +110,6 @@ object KafkaHBaseWordCount {
         (new ImmutableBytesWritable, put)
       })
 
-      // TODO: make this work
-      // 21/09/18 05:20:42 WARN client.ConnectionImplementation: Retrieve cluster id failed
-      // java.util.concurrent.ExecutionException: org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode for /hbase/hbaseid
-      // Caused by: org.apache.zookeeper.KeeperException$NoNodeException: KeeperErrorCode = NoNode for /hbase/hbaseid
       putObj.saveAsHadoopDataset(jobConf)
     })
 
