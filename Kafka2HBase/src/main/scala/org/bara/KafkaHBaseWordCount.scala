@@ -46,6 +46,7 @@ case class TweetData(data: TweetRead)
 case class TweetRead(Id: String, Text: String, CreatedAt: Long)
 case class TweetWrite(Id: String, Text: String, date: String, score: Double)
 
+
 object KafkaHBaseWordCount {
 
   def loadFile(pathToFile: String): Set[String] = {
@@ -65,6 +66,7 @@ object KafkaHBaseWordCount {
   def main(args: Array[String]): Unit = {
 
 
+
     // Create the context with a 1 second batch size
     val sparkConf = new SparkConf().setAppName("KafkaHBaseWordCount")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
@@ -81,6 +83,7 @@ object KafkaHBaseWordCount {
     val lines = KafkaUtils.createStream(ssc, zkQuorum, group, topicMap).map(_._2)
 
     //Complex algorithm material
+
     val positiveWords = loadFile("/home/words/pos-words.dat")
     val negativeWords = loadFile("/home/words/neg-words.dat")
 
@@ -103,6 +106,7 @@ object KafkaHBaseWordCount {
     tweets.foreachRDD(rdd => {
       val hbaseConf = HBaseConfiguration.create()
       hbaseConf.set("hbase.zookeeper.quorum","hbase-docker")  //To set the zookeeper cluster address, you can also import hbase-site.xml into the classpath, but it is recommended to set it in the program
+
       hbaseConf.set("hbase.zookeeper.property.clientPort", "2182")       //Set the connection port of zookeeper, 2181 by default
       hbaseConf.set(TableOutputFormat.OUTPUT_TABLE, "tweets")
 
@@ -115,6 +119,7 @@ object KafkaHBaseWordCount {
         put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("text"),Bytes.toBytes(tw.Text))
         put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("date"),Bytes.toBytes(String.valueOf(tw.date)))
         put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("score"),Bytes.toBytes(String.valueOf(tw.score)))
+
         (new ImmutableBytesWritable, put)
       })
 

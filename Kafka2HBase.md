@@ -28,23 +28,14 @@ kafka-console-producer.sh \
 ### Terminal 3 (execute & results)
 ```sh
 
-#   Create /home on HDFS
-sudo docker exec -it spark-master bash
-#   (inside)
-hadoop fs -mkdir /home
-hadoop fs -chmod 777 /home  # check permissions
-
-# exit from spark-master
-exit
-
 # (on local)
 sudo docker cp KafkaWC-1.0-SNAPSHOT-jar-with-dependencies.jar spark-master:/home/kwc.jar
 sudo docker cp ../resources/pos-words.dat spark-master:/home/words/pos-words.dat
 sudo docker cp ../resources/neg-words.dat spark-master:/home/words/neg-words.dat
 
 
-
 sudo docker exec -it spark-master /usr/local/spark-2.2.1/bin/spark-submit --class org.bara.KafkaHBaseWordCount /home/kwc.jar
+
 ```
 
 ### Terminal 4 (hbase)
