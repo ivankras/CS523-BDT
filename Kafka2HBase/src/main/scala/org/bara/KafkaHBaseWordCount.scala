@@ -20,21 +20,32 @@ package org.bara
 
 import net.liftweb.json.DefaultFormats
 import org.apache.spark.SparkConf
-import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 import net.liftweb.json._
+//import org.apache.hadoop.conf.Configuration
+//import org.apache.spark.sql.SparkSession
+//import org.apache.spark.streaming.{Seconds, StreamingContext}
+//import org.apache.spark.streaming.kafka.KafkaUtils
+//import net.liftweb.json._
+//
+//import java.util.Date
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.client.Put
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.mapred.TableOutputFormat
 import org.apache.hadoop.hbase.util.Bytes
 import org.apache.hadoop.mapred.JobConf
+import org.apache.kafka.connect.data.Timestamp
+//import org.apache.spark.sql.functions.from_unixtime
 
+import java.text.SimpleDateFormat
 import scala.io.Source
 
 case class TweetData(data: TweetRead)
-case class TweetRead(id: String, text: String, created_at: String)
-case class TweetWrite(id: String, text: String, date: String, score: Double)
+case class TweetRead(Id: String, Text: String, CreatedAt: Long)
+case class TweetWrite(Id: String, Text: String, date: String, score: Double)
+
 
 object KafkaHBaseWordCount {
 
@@ -53,24 +64,25 @@ object KafkaHBaseWordCount {
   }
 
   def main(args: Array[String]): Unit = {
-//    if (args.length < 4) {
-//      System.err.println("Usage: KafkaWordCount <zkQuorum> <group> <topics> <numThreads>")
-//      System.exit(1)
-//    }
+
+
 
     // Create the context with a 1 second batch size
     val sparkConf = new SparkConf().setAppName("KafkaHBaseWordCount")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
-//    val Array(zkQuorum, group, topics, numThreads) = args
-    val zkQuorum = "172.17.0.1:2181"
+    //TODO: get from args
+    val zkQuorum = "172.17.0.1:2182"
     val group =  "kafka-spark-streaming-example"
-    val topics = "test-topic"
+    val topics = "twitter_status_connect"
     val numThreads = "1"
     ssc.checkpoint("/home")
 
+    //Kafka
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
     val lines = KafkaUtils.createStream(ssc, zkQuorum, group, topicMap).map(_._2)
+
+    //Complex algorithm material
 
     val positiveWords = loadFile("/home/words/pos-words.dat")
     val negativeWords = loadFile("/home/words/neg-words.dat")
@@ -78,23 +90,23 @@ object KafkaHBaseWordCount {
     val tweets = lines.map(t => {
       implicit val formats: DefaultFormats.type = net.liftweb.json.DefaultFormats
       val tweetJson = parse(t)
-      val readTweet = tweetJson.extract[TweetData].data
+      val readTweet = tweetJson.extract[TweetRead]
+      val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
       val tweet = TweetWrite(
-        readTweet.id,
-        readTweet.text,
-        readTweet.created_at.split("T")(0),
-        computeScore(readTweet.text.split(" "), positiveWords, negativeWords)
+        readTweet.Id,
+        readTweet.Text,
+        df.format(Timestamp.toLogical(Timestamp.SCHEMA, readTweet.CreatedAt)),
+        computeScore(readTweet.Text.split(" "), positiveWords, negativeWords)
       )
       tweet
-      // tweet.id
     })
 
-//    val printableTweets = tweets.reduceByWindow(_ + " " + _, Minutes(1), Seconds(6))
-//    printableTweets.print()
 
+    //RDD -> HBase
     tweets.foreachRDD(rdd => {
       val hbaseConf = HBaseConfiguration.create()
-      hbaseConf.set("hbase.zookeeper.quorum","172.17.0.1")  //To set the zookeeper cluster address, you can also import hbase-site.xml into the classpath, but it is recommended to set it in the program
+      hbaseConf.set("hbase.zookeeper.quorum","hbase-docker")  //To set the zookeeper cluster address, you can also import hbase-site.xml into the classpath, but it is recommended to set it in the program
+
       hbaseConf.set("hbase.zookeeper.property.clientPort", "2182")       //Set the connection port of zookeeper, 2181 by default
       hbaseConf.set(TableOutputFormat.OUTPUT_TABLE, "tweets")
 
@@ -102,11 +114,12 @@ object KafkaHBaseWordCount {
       jobConf.setOutputFormat(classOf[TableOutputFormat])
 
       val putObj = rdd.map(tw => {
-        val put = new Put(Bytes.toBytes(tw.id))
-        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("id"),Bytes.toBytes(tw.id))
-        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("text"),Bytes.toBytes(tw.text))
-        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("date"),Bytes.toBytes(tw.date))
-        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("score"),Bytes.toBytes(tw.score))
+        val put = new Put(Bytes.toBytes(tw.Id))
+        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("id"),Bytes.toBytes(tw.Id))
+        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("text"),Bytes.toBytes(tw.Text))
+        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("date"),Bytes.toBytes(String.valueOf(tw.date)))
+        put.addColumn(Bytes.toBytes("tweet-data"),Bytes.toBytes("score"),Bytes.toBytes(String.valueOf(tw.score)))
+
         (new ImmutableBytesWritable, put)
       })
 
@@ -117,4 +130,3 @@ object KafkaHBaseWordCount {
     ssc.awaitTermination()
   }
 }
-// scalastyle:on println
