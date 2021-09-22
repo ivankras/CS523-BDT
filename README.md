@@ -58,3 +58,10 @@ exit
 ```
 
 #### don't forget to stop the kafka start script while testing as to not hit your API limits in one run :-)
+
+
+### References
+    This project wouldn't be possible without these open source images
+* [wurstmeister/kafka](https://github.com/wurstmeister/kafka-docker)
+* [singularities/spark](https://hub.docker.com/r/singularities/spark/)
+* [dajobe/hbase](https://github.com/dajobe/hbase-docker).
